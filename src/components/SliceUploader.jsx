@@ -1,5 +1,11 @@
-import React, { useRef, useReducer } from 'react'
+import React, { useReducer } from 'react'
 import SparkMD5 from 'spark-md5'
+import UploadButton from './UploadButton'
+import UploadList from './UploadList'
+import { styled } from '@mui/material/styles'
+import Container from '@mui/material/Container'
+import Box from '@mui/material/Box'
+import Stack from '@mui/material/Stack'
 
 const initialState = {
   uploading: false,
@@ -10,26 +16,25 @@ const reducer = (state, action) => {
   const { name, md5, percent } = action
   switch(action.type) {
     case 'fileChange':
-      return { ...state, currentFile: { name, percent:0 }, uploading: true }
+      return { ...state, currentFile: { name, percent:0, status: 'checking' }, uploading: true }
     case 'fileRead':
-      return { ...state, currentFile: { ...state.currentFile, md5 } }
+      return { ...state, currentFile: { ...state.currentFile, md5, status: 'uploading' } }
     case 'fileExist':
       console.log('file exist')
-      return { ...state, currentFile: null, uploadedFiles: [state.uploadedFiles.find(v=>v.md5===md5), ...state.uploadedFiles.filter(v=>v.md5!==md5)] }
+      return { ...state, uploading: false, currentFile: null, uploadedFiles: [state.uploadedFiles.find(v=>v.md5===md5), ...state.uploadedFiles.filter(v=>v.md5!==md5)] }
     case 'chunkUploaded':
       return { ...state, currentFile: {...state.currentFile, percent } }
     case 'fileUploaded':
       console.log('merged')
       console.groupEnd()
-      return { ...state, uploading: false, currentFile: null, uploadedFiles: [state.currentFile, ...state.uploadedFiles] }
+      return { ...state, uploading: false, currentFile: null, uploadedFiles: [{...state.currentFile, status: 'uploaded'}, ...state.uploadedFiles] }
     default:
       return state
   }
 }
 
-const sliceUploader = () => {
+const SliceUploader = () => {
   const [state, dispatch] = useReducer(reducer, initialState)
-  const inputRef = useRef(null)
   const chunkSize = 5 * 1024 * 1024
   let chunkNum = 1
   let currentChunk = 0, uploadedChunkNum = 0
@@ -106,26 +111,25 @@ const sliceUploader = () => {
     readFile(target.files[0])
   }
 
-  return <div>
-    <input type="file" id="file" ref={inputRef} style={{display: 'none'}} onChange={uploader} />
-    <button onClick={()=>inputRef.current.click()} disabled={state.uploading}>Select File</button>
-    <ul>
-      {state.currentFile && <li>
-        <span>
-          { state.currentFile.percent? 'uploading: ':'checking: ' }
-          { state.currentFile.name }
-          { state.currentFile.percent ? ` ${state.currentFile.percent}%` : ' ' }
-        </span>
-      </li>}
-      {
-        state.uploadedFiles.length>0 && state.uploadedFiles.map((item) => (
-          <li key={item.md5}>
-            <span>uploaded: {item.name} {item.percent}%</span>
-          </li>
-        ))
-      }
-    </ul>
-  </div>
+  const UploadBox = styled(Box)({
+    border: '1px dashed grey',
+    textAlign: 'left',
+    padding: '10px',
+    marginTop: '10px',
+    width: '600px',
+    minHeight: '300px'
+  })
+
+  return <>
+    <Container fixed>
+      <UploadBox>
+        <Stack spacing={2}>
+          <UploadButton onChange={uploader} loading={state.uploading} />
+          <UploadList currentFile={state.currentFile} uploadedFiles={state.uploadedFiles} />
+        </Stack>
+      </UploadBox>
+    </Container>
+  </>
 }
 
-export default sliceUploader
+export default SliceUploader
