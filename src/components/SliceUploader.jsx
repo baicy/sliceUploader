@@ -1,9 +1,11 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import SparkMD5 from 'spark-md5'
 
 const sliceUploader = () => {
+  const [uploading, setUploading] = useState(false)
   const [uploadedFileList, setUploadedFileList] = useState([])
   const [uploadingFile, setUploadingFile] = useState(null)
+  const inputRef = useRef(null)
   let currentFile = null
   const chunkSize = 5 * 1024 * 1024
   let chunkNum = 1
@@ -38,7 +40,7 @@ const sliceUploader = () => {
         } else {
           currentFile = { name: file.name, status: false, md5 }
           setUploadingFile(currentFile)
-          chunkNum>1 ? uploadChunks(file) : uploadFile(file)
+          uploadChunks(file)
         }
       }
     }
@@ -50,18 +52,8 @@ const sliceUploader = () => {
       fileReader.readAsArrayBuffer(blobSlice.call(file, start, end))
     }
 
+    setUploading(true)
     readChunk()
-  }
-
-  const uploadFile = () => {
-    setTimeout(() => {
-      console.log('uploaded file')
-      console.groupEnd()
-      currentFile.status = true
-      setUploadedFileList([currentFile, ...uploadedFileList])
-      currentFile = null
-      setUploadingFile(null)
-    }, 1000)
   }
 
   const uploadChunk = (chunk) => {
@@ -69,7 +61,7 @@ const sliceUploader = () => {
       setTimeout(() => {
         console.log('uploaded chunk', chunk)
         resolve()
-      }, 1000)
+      }, Math.random(0, 1)*5000)
     })
   }
 
@@ -89,18 +81,34 @@ const sliceUploader = () => {
       console.log('merged')
       console.groupEnd()
       currentFile.status = true
+      console.log('uploadedFileList', uploadedFileList)
       setUploadedFileList([currentFile, ...uploadedFileList])
       currentFile = null
       setUploadingFile(null)
+      setUploading(false)
     }, 1000)
   }
 
   const uploader = ({ target }) => {
+    console.log('change', target.files)
+    if(!target.files.length) return
     readFile(target.files[0])
   }
 
+  useEffect(()=>{
+    console.log('mounted')
+    document.getElementById('file').addEventListener('change', uploader)
+
+    return () => {
+      console.log('unmount')
+      document.getElementById('file').removeEventListener('change', uploader)
+    }
+  }, [])
+
   return <div>
-    <input type="file" name="file" id="file" onChange={uploader} />
+    <input type="file" id="file" ref={inputRef} style={{display: 'none'}} />
+    {/* <input type="file" id="file" ref={inputRef} style={{display: 'none'}} onChange={uploader} /> */}
+    <button onClick={()=>inputRef.current.click()} disabled={uploading}>Select File</button>
     <ul>
       {uploadingFile && <li>
         <span>uploading: {uploadingFile.name} {uploadingFile.status?.toString()}</span>
