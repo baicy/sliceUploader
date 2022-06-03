@@ -1,5 +1,11 @@
 import axios from 'axios'
 
+const handleErrorStatus = (error) => {
+  // console.log('error', error)
+  // console.log('error.message', error.message)
+  // console.log('error.response', error.response)
+}
+
 const configAxios = (config) => {
   const service = axios.create({
     baseURL: '/api',
@@ -8,7 +14,10 @@ const configAxios = (config) => {
 
   service.interceptors.response.use(
     response => response.data,
-    error => error.message
+    error => {
+      handleErrorStatus(error)
+      return Promise.reject(error)
+    }
   )
 
   return service(config)

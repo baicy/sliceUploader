@@ -51,6 +51,18 @@ function clearFiles() {
   fs.writeFile(path.join(uploadDir, 'md5.db'), '{}', { encoding: 'utf-8' }, err=>console.error(err))
 }
 
+function moveChunk(tmp, md5, index) {
+  return new Promise((resolve, reject) => {
+    fs.rename(tmp, path.resolve(uploadDir, md5, index), err => {
+      if(err) {
+        reject(index)
+      } else {
+        resolve(index)
+      }
+    })
+  })
+}
+
 app.post('/check', (req, res) => {
   const { md5, fileName } = req.body
   checkFileExist(md5, fileName).then(data => res.send(data))
@@ -58,14 +70,14 @@ app.post('/check', (req, res) => {
 
 app.post('/upload/*', (req, res) => {
   const form = new formidable.IncomingForm({ uploadDir: './tmp' })
-  form.parse(req, function(err, fields, file){
+  form.parse(req, function(err, fields, file) {
     const { md5, index } = fields
     fs.ensureDirSync(path.resolve(uploadDir, md5))
-    fs.rename(file.data.filepath, path.resolve(uploadDir, md5, index), err => {
-      if(!err) {
-        res.send({ ok: true, md5, chunk: index})
-      }
-    })
+    moveChunk(file.data.filepath, md5, index)
+    .then(
+      data => res.send({ ok: 1, md5, chunk: data }),
+      error => res.send({ ok: 0, md5, chunk: error, msg: '上传失败' })
+    )
   })
 })
 
@@ -79,9 +91,9 @@ app.post('/merge', (req, res) => {
       chunks,
       total
     })
-    return
   }
-  chunks.sort((a, b)=>a-b)
+
+  chunks.sort((a, b) => a - b)
   fs.writeFileSync(path.resolve(uploadDir, fileName), '')
   for(let i=0;i<total;i++) {
     const filePath = path.resolve(uploadDir, md5, `${i}`)
@@ -89,9 +101,11 @@ app.post('/merge', (req, res) => {
     fs.unlinkSync(filePath)
   }
   fs.rmdirSync(path.resolve(uploadDir, md5))
+
   const db = JSON.parse(fs.readFileSync(path.join(uploadDir, 'md5.db'), { encoding: 'utf-8' }))
   db[md5] = [fileName, ...(db[md5]||[])]
   fs.writeFileSync(path.join(uploadDir, 'md5.db'), JSON.stringify(db), { encoding: 'utf-8' })
+
   res.send({ ok: 1, data: { md5, fileName } })
 })
 

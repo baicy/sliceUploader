@@ -7,6 +7,7 @@ import Container from '@mui/material/Container'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
 import { request } from '../utils/request'
+import concurrency from '../utils/concurrency'
 
 const initialState = {
   uploading: false,
@@ -14,32 +15,28 @@ const initialState = {
   uploadedFiles: []
 }
 const reducer = (state, action) => {
-  const { name, md5, percent, inList } = action
+  const { name, md5, percent } = { ...(state.currentFile||{}), ...action }
   switch(action.type) {
     case 'fileChange':
-      return { ...state, currentFile: { name, percent:0, status: 'checking' }, uploading: true }
+      return { ...state, currentFile: { name, percent: 0, status: 'checking' }, uploading: true }
     case 'fileRead':
-      return { ...state, currentFile: { ...state.currentFile, md5, status: 'uploading' } }
-    case 'fileExist':
-      console.log('file exist')
-      return { ...state, uploading: false, currentFile: null, uploadedFiles: [state.uploadedFiles.find(v=>v.md5===md5), ...state.uploadedFiles.filter(v=>v.md5!==md5)] }
+      return { ...state, currentFile: { name, md5, percent, status: 'uploading' } }
     case 'chunkUploaded':
-      return { ...state, currentFile: {...state.currentFile, percent } }
+      return { ...state, currentFile: {name, md5, percent } }
     case 'fileUploaded':
-      console.log('merged')
+      console.log('uploaded success')
       console.groupEnd()
-      return { ...state, uploading: false, currentFile: null, uploadedFiles: [{...state.currentFile, status: 'uploaded'}, ...state.uploadedFiles] }
+      return { ...state, uploading: false, currentFile: null, uploadedFiles: [{name, md5, percent, status: 'uploaded'}, ...state.uploadedFiles.filter(v=>v.md5!==md5||v.name!==name)] }
     case 'fileFastUploaded':
       console.log('fast uploaded')
       console.groupEnd()
-      return { ...state, uploading: false, currentFile: null, uploadedFiles: [{name, md5, percent: 100, status: 'uploaded'}, ...state.uploadedFiles] }
+      return { ...state, uploading: false, currentFile: null, uploadedFiles: [{name, md5, percent: 100, status: 'uploaded'}, ...state.uploadedFiles.filter(v=>v.md5!==md5||v.name!==name)] }
     case 'fileProceed':
-      return {
-        ...state,
-        uploading: true,
-        currentFile: {name, md5, percent, status: 'uploding'},
-        uploadedFiles: inList ? [...state.uploadedFiles.filter(v=>v.md5!==md5)] : [...state.uploadedFiles]
-      }
+      return { ...state, uploading: true, currentFile: {name, md5, percent, status: 'uploding'}, uploadedFiles: [...state.uploadedFiles.filter(v=>v.md5!==md5||v.name!==name)] }
+    case 'fileError':
+      console.log('uploaded fail')
+      console.groupEnd()
+      return { ...state, uploading: false, currentFile: null, uploadedFiles: [{name, md5, percent, status: 'error'}, ...state.uploadedFiles.filter(v=>v.md5!==md5||v.name!==name)] }
     default:
       return state
   }
@@ -61,7 +58,6 @@ const SliceUploader = () => {
     const fileReader = new FileReader()
     const spark = new SparkMD5.ArrayBuffer()
     fileReader.onload = ({ target }) => {
-      console.log(`read ${chunkNum>1 ? `chunk ${currentChunk}` : 'file'}`)
       spark.append(target.result)
       currentChunk++
       if(currentChunk < chunkNum) {
@@ -74,16 +70,9 @@ const SliceUploader = () => {
         .then(res => {
           const { exist, chunkList } = res
           if(exist) {
-            const listExist = state.uploadedFiles.find(v=>v.md5===md5)
-            if(listExist&&listExist.name===file.name) { // 当前列表中存在同文件, 移动到最上面显示
-              if(listExist.status==='uploaded') {
-                dispatch({ type: 'fileExist', md5 })
-              } else{
-                dispatch({ type: 'fileProceed', name: file.name, md5, percent, inList: true})
-              }
-            } else if(chunkList) {
+            if(chunkList) {
               uploadedChunkNum = chunkList.length
-              dispatch({ type: 'fileProceed', name: file.name, md5, percent: Math.ceil(uploadedChunkNum/chunkNum*100), inList: false })
+              dispatch({ type: 'fileProceed', name: file.name, md5, percent: Math.ceil(uploadedChunkNum/chunkNum*100) })
               uploadChunks(file, md5, chunkList)
             } else {
               dispatch({ type: 'fileFastUploaded', name: file.name, md5 })
@@ -107,36 +96,48 @@ const SliceUploader = () => {
     readChunk()
   }
 
-  const uploadChunk = (chunk, md5, file) => {
+  const uploadChunk = ({ chunk, md5, file }) => {
     const form = new FormData()
     form.append('md5', md5)
     form.append('index', chunk)
     form.append('data', file.slice(chunk*chunkSize, (chunk+1)*chunkSize>=file.size?file.size:(chunk+1)*chunkSize))
-    return request(`/upload/${chunk}`, form).then(res => {
-      if(res) {
-        console.log('uploaded chunk', chunk)
+    return request(`/upload/${chunk}`, form)
+    .then(
+      () => {
         uploadedChunkNum++
         dispatch({ type: 'chunkUploaded', percent: Math.ceil(uploadedChunkNum/chunkNum*100) })
-      }
-    })
+        return Promise.resolve(chunk)
+      },
+      err => Promise.reject({ index: chunk, msg: err.message })
+    )
   }
 
   const uploadChunks = (file, md5, chunkList=[]) => {
     const reqList = []
     for(let i = 0; i < chunkNum; i++) {
-      chunkList.indexOf(i)===-1 && reqList.push(uploadChunk(i, md5, file))
+      !chunkList.includes(i) && reqList.push({ chunk: i, md5, file })
     }
-    Promise.all(reqList).then(() => {
-      console.log('uploaded all chunks')
-      mergeChunks(file, md5)
-    }).catch(()=>{
-      console.error('upload pause')
-    })
+    concurrency(10, reqList, uploadChunk)
+    .then(
+      (resolves) => {
+        console.log('uploaded all chunks', resolves.map(r => r.value))
+        mergeChunks(file, md5)
+      },
+      ({ resolves, rejects }) => {
+        console.log('upload success chunks', resolves.map(r => r.value))
+        console.log('upload failed chunks', rejects.map(r => r.reason.index))
+        dispatch({ type: 'fileError' })
+      }
+    )
   }
 
   const mergeChunks = (file, md5) => {
-    request('/merge', { md5, fileName: file.name, total: chunkNum }).then(() => {
-      dispatch({ type: 'fileUploaded' })
+    request('/merge', { md5, fileName: file.name, total: chunkNum }).then((res) => {
+      if(res.ok) {
+        dispatch({ type: 'fileUploaded' })
+      } else {
+        dispatch({ type: 'fileError' })
+      }
     })
   }
 
