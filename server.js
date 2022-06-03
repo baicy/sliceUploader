@@ -44,7 +44,7 @@ function checkFileExist(md5, fileName) {
 
 function clearFiles() {
   fs.readdirSync(path.resolve(uploadDir)).forEach(file => {
-    if(!['.DS_Store', 'md5.db'].includes(file) && !fs.lstatSync(path.resolve(uploadDir, file)).isDirectory()) {
+    if(!['.DS_Store', 'md5.db', '.gitkeep'].includes(file) && !fs.lstatSync(path.resolve(uploadDir, file)).isDirectory()) {
       fs.unlink(path.resolve(uploadDir, file), err=>console.error(err))
     }
   })
@@ -73,7 +73,7 @@ app.post('/merge', (req, res) => {
   const { md5, fileName, total } = req.body
   const chunks = fs.readdirSync(path.resolve(uploadDir, md5))
   if(chunks.length!==total) {
-    res.sendStatus(500).send({
+    res.send({
       ok: 0,
       msg: '文件分片数出错',
       chunks,
