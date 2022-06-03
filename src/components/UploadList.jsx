@@ -45,7 +45,7 @@ const UploadList = ({ currentFile, uploadedFiles }) => {
         { currentFile && <FileItem file={{...currentFile, status: currentFile.percent?'uploading':'checking'}} /> }
         {
           uploadedFiles.length > 0 && uploadedFiles.map((item) => (
-            <FileItem key={item.md5} file={item} />
+            <FileItem key={`${item.md5}-${item.name}`} file={item} />
           ))
         }
       </Stack>

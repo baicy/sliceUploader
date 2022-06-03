@@ -138,3 +138,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# uploder
+uploads/*
+tmp/*

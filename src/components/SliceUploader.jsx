@@ -6,6 +6,7 @@ import { styled } from '@mui/material/styles'
 import Container from '@mui/material/Container'
 import Box from '@mui/material/Box'
 import Stack from '@mui/material/Stack'
+import { request } from '../utils/request'
 
 const initialState = {
   uploading: false,
@@ -13,7 +14,7 @@ const initialState = {
   uploadedFiles: []
 }
 const reducer = (state, action) => {
-  const { name, md5, percent } = action
+  const { name, md5, percent, inList } = action
   switch(action.type) {
     case 'fileChange':
       return { ...state, currentFile: { name, percent:0, status: 'checking' }, uploading: true }
@@ -28,6 +29,17 @@ const reducer = (state, action) => {
       console.log('merged')
       console.groupEnd()
       return { ...state, uploading: false, currentFile: null, uploadedFiles: [{...state.currentFile, status: 'uploaded'}, ...state.uploadedFiles] }
+    case 'fileFastUploaded':
+      console.log('fast uploaded')
+      console.groupEnd()
+      return { ...state, uploading: false, currentFile: null, uploadedFiles: [{name, md5, percent: 100, status: 'uploaded'}, ...state.uploadedFiles] }
+    case 'fileProceed':
+      return {
+        ...state,
+        uploading: true,
+        currentFile: {name, md5, percent, status: 'uploding'},
+        uploadedFiles: inList ? [...state.uploadedFiles.filter(v=>v.md5!==md5)] : [...state.uploadedFiles]
+      }
     default:
       return state
   }
@@ -58,12 +70,29 @@ const SliceUploader = () => {
         const md5 = spark.end()
         console.log('md5', md5)
 
-        if(state.uploadedFiles.find(v=>v.md5===md5)) {
-          dispatch({ type: 'fileExist', md5 })
-        } else {
-          dispatch({ type: 'fileRead', name: file.name, md5 })
-          uploadChunks(file)
-        }
+        request('/check', { fileName: file.name, md5 })
+        .then(res => {
+          const { exist, chunkList } = res
+          if(exist) {
+            const listExist = state.uploadedFiles.find(v=>v.md5===md5)
+            if(listExist&&listExist.name===file.name) { // 当前列表中存在同文件, 移动到最上面显示
+              if(listExist.status==='uploaded') {
+                dispatch({ type: 'fileExist', md5 })
+              } else{
+                dispatch({ type: 'fileProceed', name: file.name, md5, percent, inList: true})
+              }
+            } else if(chunkList) {
+              uploadedChunkNum = chunkList.length
+              dispatch({ type: 'fileProceed', name: file.name, md5, percent: Math.ceil(uploadedChunkNum/chunkNum*100), inList: false })
+              uploadChunks(file, md5, chunkList)
+            } else {
+              dispatch({ type: 'fileFastUploaded', name: file.name, md5 })
+            }
+          } else {
+            dispatch({ type: 'fileRead', name: file.name, md5 })
+            uploadChunks(file, md5)
+          }
+        })
       }
     }
 
@@ -78,32 +107,37 @@ const SliceUploader = () => {
     readChunk()
   }
 
-  const uploadChunk = (chunk) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
+  const uploadChunk = (chunk, md5, file) => {
+    const form = new FormData()
+    form.append('md5', md5)
+    form.append('index', chunk)
+    form.append('data', file.slice(chunk*chunkSize, (chunk+1)*chunkSize>=file.size?file.size:(chunk+1)*chunkSize))
+    return request(`/upload/${chunk}`, form).then(res => {
+      if(res) {
         console.log('uploaded chunk', chunk)
         uploadedChunkNum++
         dispatch({ type: 'chunkUploaded', percent: Math.ceil(uploadedChunkNum/chunkNum*100) })
-        resolve()
-      }, Math.random(0, 1)*5000)
+      }
     })
   }
 
-  const uploadChunks = (file) => {
+  const uploadChunks = (file, md5, chunkList=[]) => {
     const reqList = []
     for(let i = 0; i < chunkNum; i++) {
-      reqList.push(uploadChunk(i))
+      chunkList.indexOf(i)===-1 && reqList.push(uploadChunk(i, md5, file))
     }
     Promise.all(reqList).then(() => {
       console.log('uploaded all chunks')
-      mergeChunks()
+      mergeChunks(file, md5)
+    }).catch(()=>{
+      console.error('upload pause')
     })
   }
 
-  const mergeChunks = () => {
-    setTimeout(() => {
+  const mergeChunks = (file, md5) => {
+    request('/merge', { md5, fileName: file.name, total: chunkNum }).then(() => {
       dispatch({ type: 'fileUploaded' })
-    }, 1000)
+    })
   }
 
   const uploader = ({ target }) => {
