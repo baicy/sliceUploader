@@ -10,34 +10,48 @@ app.use(bodyParser.json())
 
 const uploadDir = './uploads'
 
+/**
+ * 查找文件是否存在
+ * @param {string} md5
+ * @param {string} fileName
+ * @returns false || fileName
+ */
 function checkFileExist(md5, fileName) {
-  return new Promise((resolve, reject) => {
-    let exist = false
-
-    // 查找md5对应文件名数据库文件, 没有即创建
-    if (!fs.existsSync(path.join(uploadDir, 'md5.db'))) {
-      fs.writeFile(path.join(uploadDir, 'md5.db'), '{}', { encoding: 'utf-8' }, (err) => reject(err))
-      resolve({ exist }) // 数据库未初始化, 没有上传过文件, 一定需要此次上传
-    } else {
-      // 查找md5对应文件是否存在, 是否有其他名字的相同文件
-      const db = JSON.parse(fs.readFileSync(path.join(uploadDir, 'md5.db'), { encoding: 'utf-8' }))
-      if (Object.keys(db).includes(md5)) {
-        exist = true
-        if (!db[md5].includes(fileName)) {
-          // md5对应的文件名列表中没有该文件, 添加对应
-          db[md5] = [fileName, ...db[md5]]
-          fs.writeFile(path.join(uploadDir, 'md5.db'), JSON.stringify(db), { encoding: 'utf-8' }, (err) => reject(err))
-        }
-      }
-      exist && resolve({ exist }) // 存在该md5, 上传过该文件
+  // 查找md5对应文件名数据库文件, 没有即创建
+  if (!fs.existsSync(path.join(uploadDir, 'md5.db'))) {
+    fs.writeFile(path.join(uploadDir, 'md5.db'), '{}', { encoding: 'utf-8' }, (err) => reject(err))
+    return false // 数据库未初始化, 没有上传过文件, 什么都不存在
+  }
+  // 查找md5对应文件是否存在, 是否有其他名字的相同文件
+  const db = JSON.parse(fs.readFileSync(path.join(uploadDir, 'md5.db'), { encoding: 'utf-8' }))
+  if (Object.keys(db).includes(md5)) {
+    if (!db[md5].includes(fileName)) {
+      // md5对应的文件名列表中没有该文件, 添加对应
+      db[md5] = [...db[md5], fileName]
+      fs.writeFile(path.join(uploadDir, 'md5.db'), JSON.stringify(db), { encoding: 'utf-8' }, (err) => reject(err))
     }
+    return db[md5][0]
+  }
+  return false
+}
+
+/**
+ * 检查是否需要进行上传
+ * @param {string} md5
+ * @param {string} fileName 文件名
+ * @returns Promise
+ */
+function checkFileNeedUpload(md5, fileName) {
+  return new Promise((resolve) => {
+    // 查找是否存在md5对应文件
+    checkFileExist(md5, fileName) && resolve({ exist: true })
 
     // 系统上传过文件, 未在数据库中找到记录, 查找是否有断点上传的文件夹
     if (fs.existsSync(path.join(uploadDir, md5))) {
       const chunkList = fs.readdirSync(path.join(uploadDir, md5))
       resolve({ exist: true, chunkList: chunkList.map((i) => Number(i)) }) // 返回分片列表
     } else {
-      resolve({ exist }) // 文件不存在, 需要上传
+      resolve({ exist: false }) // 文件不存在, 需要上传
     }
   })
 }
@@ -65,7 +79,7 @@ function moveChunk(tmp, md5, index) {
 
 app.post('/check', (req, res) => {
   const { md5, fileName } = req.body
-  checkFileExist(md5, fileName).then((data) => res.send(data))
+  checkFileNeedUpload(md5, fileName).then((data) => res.send(data))
 })
 
 app.post('/upload/*', (req, res) => {
@@ -106,6 +120,18 @@ app.post('/merge', (req, res) => {
   fs.writeFileSync(path.join(uploadDir, 'md5.db'), JSON.stringify(db), { encoding: 'utf-8' })
 
   res.send({ ok: 1, data: { md5, fileName } })
+})
+
+app.post('/download/*', (req, res) => {
+  const { fileName, md5 } = req.body
+  const dbFileName = checkFileExist(md5, fileName)
+  console.log(dbFileName)
+  if (dbFileName) {
+    res.header({ 'Content-Disposition': `attachment; filename=${encodeURIComponent(fileName)}` })
+    res.sendFile(path.resolve(uploadDir, dbFileName))
+  } else {
+    res.send({ ok: 0, msg: '文件不存在' })
+  }
 })
 
 const server = app.listen(8080, () => {

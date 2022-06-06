@@ -13,8 +13,17 @@ const configAxios = (config) => {
   })
 
   service.interceptors.response.use(
-    response => response.data,
-    error => {
+    (response) =>  {
+      if(response.request.responseType==='blob') {
+        const fileName = response.headers['content-disposition'] && response.headers['content-disposition'].match(/attachment; ?filename=(.+)/)
+        return {
+          data: response.data,
+          fileName: fileName ? fileName[1] : ''
+        }
+      }
+      return response.data
+    },
+    (error) => {
       handleErrorStatus(error)
       return Promise.reject(error)
     }
@@ -23,10 +32,11 @@ const configAxios = (config) => {
   return service(config)
 }
 
-export const request = (path, params={}) => {
+export const request = (path, params = {}, options = {}) => {
   return configAxios({
     method: 'post',
     url: path,
-    data: params
+    data: params,
+    ...options
   })
 }
