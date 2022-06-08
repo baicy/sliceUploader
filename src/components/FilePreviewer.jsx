@@ -1,12 +1,11 @@
 import React, { useEffect, memo, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { styled } from '@mui/material/styles'
-import { Box, Divider, Grid, Typography, Button } from '@mui/material'
+import { Box, Paper, Divider, Grid, Typography, Button } from '@mui/material'
 import { request } from '../utils/request'
 import { preview } from '../utils/preview'
 
-const PreviewBox = styled(Box)({
-  border: '1px solid grey',
+const PreviewBox = styled(Paper)({
   textAlign: 'left',
   padding: '10px',
   marginTop: '10px',
@@ -56,7 +55,7 @@ const FilePreviewer = ({ file, onDelete }) => {
   }
 
   return ReactDOM.createPortal(
-    <PreviewBox>
+    <PreviewBox variant="outlined" square>
       <Grid container>
         <Grid item xs={8}>
           <Typography variant="h6">{file && file.name}</Typography>

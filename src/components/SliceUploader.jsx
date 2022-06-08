@@ -1,10 +1,11 @@
-import React, { useReducer, useState, useMemo, useCallback } from 'react'
+import React, { useReducer, useState, useMemo, useCallback, useEffect, useRef } from 'react'
 import SparkMD5 from 'spark-md5'
 import UploadButton from './UploadButton'
 import UploadList from './UploadList'
 import FilePreviewer from './FilePreviewer'
 import { styled } from '@mui/material/styles'
-import { Box, Stack, Button } from '@mui/material'
+import { Box, Stack, Button, Paper, Divider } from '@mui/material'
+import DownloadIcon from '@mui/icons-material/Download'
 import { request } from '../utils/request'
 import concurrency from '../utils/concurrency'
 
@@ -48,9 +49,15 @@ const SliceUploader = () => {
   const [state, dispatch] = useReducer(reducer, initialState)
   const [previewing, setPreviewing] = useState(false)
   const [currentPreview, setCurrentPreview] = useState(null)
+  const uploadRef = useRef(null)
   const chunkSize = 5 * 1024 * 1024
   let chunkNum = 1
   let currentChunk = 0, uploadedChunkNum = 0
+
+  // TODO: 点击preview时不重新渲染文件列表
+  useEffect(() => {
+    uploadRef.current.style.height = `${window.innerHeight - 10 - 1 - 10 - 20}px`
+  })
 
   const readFile = (file) => {
     console.group('file', file.name)
@@ -150,12 +157,10 @@ const SliceUploader = () => {
     readFile(target.files[0])
   }
 
-  const UploadBox = styled(Box)({
-    border: '1px dashed grey',
+  const UploadBox = styled(Paper)({
     textAlign: 'left',
     padding: '10px',
-    marginTop: '10px',
-    minHeight: '300px'
+    marginTop: '10px'
   })
 
   const loadFiles = () => {
@@ -181,12 +186,17 @@ const SliceUploader = () => {
 
   return <>
     <>
-      <UploadBox>
-        <Stack spacing={2}>
-          <UploadButton onChange={uploader} loading={state.uploading} />
-          <UploadList currentFile={currentFile} uploadedFiles={uploadedFiles} onPreview={handlerSetPreview} />
+      <UploadBox variant="outlined" square ref={uploadRef}>
+        <Stack spacing={2} sx={{ height: '100%' }}>
+          <Stack direction="row" spacing={2} justifyContent="flex-start" sx={{ position: 'fixed' }}>
+            <UploadButton onChange={uploader} loading={state.uploading} />
+            <Button onClick={loadFiles} variant="contained" startIcon={<DownloadIcon />}>LOAD</Button>
+          </Stack>
+          <Divider style={{ marginTop: '60px' }} />
+          <Box sx={{ overflow: 'auto' }}>
+            <UploadList currentFile={currentFile} uploadedFiles={uploadedFiles} onPreview={handlerSetPreview} />
+          </Box>
         </Stack>
-        <Button onClick={loadFiles} variant="contained">LOAD</Button>
       </UploadBox>
       { previewing && <FilePreviewer file={previewingFile} onDelete={handlerDeleteFile} />}
     </>

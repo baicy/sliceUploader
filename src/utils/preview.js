@@ -65,7 +65,9 @@ const handlerText = (file) => {
   reader.onload = () => {
     const text = document.createElement('pre')
     text.innerHTML = reader.result
-    text.style.whiteSpace = 'pre-wrap'
+    text.style.height = `${getDefaultHeight()}px`
+    text.style.overflow = 'auto'
+    text.style.margin = 0
     display(text)
   }
 
