@@ -13,7 +13,7 @@ const PreviewBox = styled(Box)({
   marginLeft: '10px',
 })
 
-const FilePreviewer = ({ file }) => {
+const FilePreviewer = ({ file, onDelete }) => {
   const [fileData, setFileData] = useState(null)
 
   // console.log('render previewer')
@@ -25,7 +25,7 @@ const FilePreviewer = ({ file }) => {
         const { data, fileName } = res
         const blob = new Blob([data], { type: data.type })
         const url = window.URL.createObjectURL(blob)
-        const previewFile = { blob, url, fileName: decodeURIComponent(fileName), fileType: data.type }
+        const previewFile = { blob, url, md5, fileName: decodeURIComponent(fileName), fileType: data.type }
         setFileData(previewFile)
         preview(previewFile)
       },
@@ -44,6 +44,17 @@ const FilePreviewer = ({ file }) => {
     link.click()
   }
 
+  const handlerDeleteFile = (e) => {
+    e.preventDefault()
+    const { md5, fileName } = fileData
+    request(`/delete/${md5}`, { md5, fileName }).then(
+      (res) => {
+        onDelete()
+      },
+      (err) => console.error(err)
+    )
+  }
+
   return ReactDOM.createPortal(
     <PreviewBox>
       <Grid container>
@@ -52,6 +63,7 @@ const FilePreviewer = ({ file }) => {
         </Grid>
         <Grid item xs={4} style={{ textAlign: 'right' }}>
           <Button onClick={handlerDownloadFile}>DOWNLOAD</Button>
+          <Button onClick={handlerDeleteFile} color="error">REMOVE</Button>
         </Grid>
       </Grid>
       <Divider sx={{ mb: '10px' }}></Divider>

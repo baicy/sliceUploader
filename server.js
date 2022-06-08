@@ -138,6 +138,29 @@ app.post('/merge', (req, res) => {
   res.send({ ok: 1, data: { md5, fileName } })
 })
 
+app.post('/delete/*', (req, res) => {
+  const { md5, fileName } = req.body
+  const db = JSON.parse(fs.readFileSync(path.join(uploadDir, 'md5.db'), { encoding: 'utf-8' }))
+  if(!Object.keys(db).includes(md5)) {
+    res.send({ ok: 0, md5, fileName, msg: '文件不存在'})
+  }
+  const index = db[md5].indexOf(fileName)
+  if(index===0) {
+    if(db[md5].length===1) {
+      fs.unlink(path.resolve(uploadDir, db[md5][0]), (err) => console.error(err))
+      delete(db[md5])
+    } else {
+      fs.rename(path.resolve(uploadDir, fileName), path.resolve(uploadDir, db[md5][1]))
+      db[md5].splice(0, 1)
+    }
+  } else if(index!==-1) {
+    db[md5].splice(index, 1)
+  }
+
+  fs.writeFileSync(path.join(uploadDir, 'md5.db'), JSON.stringify(db), { encoding: 'utf-8' })
+  res.send({ ok: 1, md5, fileName })
+})
+
 app.post('/test', (req, res) => {
   res.send(getExistFiles())
 })

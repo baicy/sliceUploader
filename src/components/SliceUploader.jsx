@@ -169,6 +169,12 @@ const SliceUploader = () => {
     setCurrentPreview(file)
   }, [])
 
+  const handlerDeleteFile = useCallback(() => {
+    loadFiles()
+    setPreviewing(false)
+    setCurrentPreview(null)
+  }, [])
+
   const currentFile = useMemo(()=>state.currentFile, [state.currentFile])
   const uploadedFiles = useMemo(()=>state.uploadedFiles, [state.uploadedFiles])
   const previewingFile = useMemo(() => ({ ...currentPreview }), [currentPreview])
@@ -182,7 +188,7 @@ const SliceUploader = () => {
         </Stack>
         <Button onClick={loadFiles} variant="contained">LOAD</Button>
       </UploadBox>
-      { previewing && <FilePreviewer file={previewingFile} />}
+      { previewing && <FilePreviewer file={previewingFile} onDelete={handlerDeleteFile} />}
     </>
   </>
 }
