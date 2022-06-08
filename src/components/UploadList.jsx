@@ -1,32 +1,16 @@
-import React from 'react'
-import Box from '@mui/material/Box'
-import Stack from '@mui/material/Stack'
-import Typography from '@mui/material/Typography'
-import Link from '@mui/material/Link'
-import LinearProgress from '@mui/material/LinearProgress'
-import CircularProgress from '@mui/material/CircularProgress'
+import React, { memo, useMemo, useCallback } from 'react'
+import { Box, Stack, Typography, Link, LinearProgress, CircularProgress } from '@mui/material'
 import ErrorIcon from '@mui/icons-material/Error'
-import { request } from '../utils/request'
 
-const FileItem = ({ file }) => {
-  const handlerGetFile = (e, file) => {
+const FileItem = memo(({ file, onPreview }) => {
+  // TODO: 点击preview时不重新渲染文件列表
+  console.log('render file', file.name)
+
+  const handlerPreview = useCallback((file)=>onPreview(file), [])
+  const handlerPreviewerFile = useCallback((e, file)=>{
     e.preventDefault()
-    const { name: fileName, md5 } = file
-    request(`/download/${md5}`, { fileName, md5 }, { responseType: 'blob' })
-    .then(
-      (res) => {
-        const { data, fileName } = res
-        const blob = new Blob([data], { type: data.type })
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = decodeURIComponent(fileName)
-        link.click()
-        window.URL.revokeObjectURL(url)
-      },
-      (err) => console.log(err)
-    )
-  }
+    handlerPreview(file)
+  }, [])
 
   return (
     <Box>
@@ -35,7 +19,7 @@ const FileItem = ({ file }) => {
           {['checking', 'uploading'].includes(file.status) && <CircularProgress size={15} />}
           {['error'].includes(file.status) && <ErrorIcon color="error" sx={{ fontSize: 18 }} />}
           {file.status === 'uploaded' ? (
-            <Link href="#" underline="none" onClick={(e) => handlerGetFile(e, file)}>
+            <Link href="#" underline="none" onClick={(e) => handlerPreviewerFile(e, file)}>
               {file.name}
             </Link>
           ) : (
@@ -61,17 +45,33 @@ const FileItem = ({ file }) => {
       )}
     </Box>
   )
-}
+})
 
-const UploadList = ({ currentFile, uploadedFiles }) => {
+const FileList = memo(({ files, onPreview }) => {
+  const list = useMemo(()=>[...files], [files])
+  const handlerPreview = useCallback((file)=>onPreview(file), [])
+  console.log('render file list')
+
+  return <>
+    {list.map((item) => <FileItem key={`${item.md5}-${item.name}`} file={item} onPreview={handlerPreview} />)}
+  </>
+})
+
+const UploadList = ({ currentFile, uploadedFiles, onPreview }) => {
+
+  console.log('render list')
+
+  const files = useMemo(()=>[...uploadedFiles], [uploadedFiles])
+  const handlerPreview = useCallback((file)=>onPreview(file), [])
+
   return (
     <>
       <Stack spacing={2}>
         {currentFile && <FileItem file={{ ...currentFile, status: currentFile.percent ? 'uploading' : 'checking' }} />}
-        {uploadedFiles.length > 0 && uploadedFiles.map((item) => <FileItem key={`${item.md5}-${item.name}`} file={item} />)}
+        { files.length > 0 && <FileList files={files} onPreview={handlerPreview} />}
       </Stack>
     </>
   )
 }
 
-export default UploadList
+export default memo(UploadList)

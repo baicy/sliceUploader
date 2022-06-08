@@ -122,6 +122,15 @@ app.post('/merge', (req, res) => {
   res.send({ ok: 1, data: { md5, fileName } })
 })
 
+app.post('/test', (req, res) => {
+  // setTimeout(()=>{ res.end() }, 8000)
+  // const { n } = req.body
+  // res.send(n)
+  // console.log(app.get('env'))
+  // res.send(app.get('env'))
+  res.send(req.url)
+})
+
 app.post('/download/*', (req, res) => {
   const { fileName, md5 } = req.body
   const dbFileName = checkFileExist(md5, fileName)

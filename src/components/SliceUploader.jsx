@@ -1,11 +1,10 @@
-import React, { useReducer } from 'react'
+import React, { useReducer, useState, useMemo, useCallback } from 'react'
 import SparkMD5 from 'spark-md5'
 import UploadButton from './UploadButton'
 import UploadList from './UploadList'
+import FilePreviewer from './FilePreviewer'
 import { styled } from '@mui/material/styles'
-import Container from '@mui/material/Container'
-import Box from '@mui/material/Box'
-import Stack from '@mui/material/Stack'
+import { Box, Stack } from '@mui/material'
 import { request } from '../utils/request'
 import concurrency from '../utils/concurrency'
 
@@ -44,6 +43,8 @@ const reducer = (state, action) => {
 
 const SliceUploader = () => {
   const [state, dispatch] = useReducer(reducer, initialState)
+  const [previewing, setPreviewing] = useState(false)
+  const [currentPreview, setCurrentPreview] = useState(null)
   const chunkSize = 5 * 1024 * 1024
   let chunkNum = 1
   let currentChunk = 0, uploadedChunkNum = 0
@@ -151,19 +152,42 @@ const SliceUploader = () => {
     textAlign: 'left',
     padding: '10px',
     marginTop: '10px',
-    width: '600px',
     minHeight: '300px'
   })
 
+  const testAxios = () => {
+    // const arr = [1000, 5000, 3000, 2000]
+    // const timeout = ms => new Promise(resolve => {
+    //   setTimeout(() => {
+    //     console.log(ms)
+    //     resolve(ms)
+    //   }, ms)
+    // })
+    // concurrency(2, arr, timeout)
+    // .then(res => console.log(res))
+    request('/test').then(res => console.log(res))
+  }
+
+  const handlerSetPreview = useCallback((file) => {
+    setPreviewing(true)
+    setCurrentPreview(file)
+  }, [])
+
+  const currentFile = useMemo(()=>state.currentFile, [state.currentFile])
+  const uploadedFiles = useMemo(()=>state.uploadedFiles, [state.uploadedFiles])
+  const previewingFile = useMemo(() => ({ ...currentPreview }), [currentPreview])
+
   return <>
-    <Container fixed>
+    <>
       <UploadBox>
         <Stack spacing={2}>
           <UploadButton onChange={uploader} loading={state.uploading} />
-          <UploadList currentFile={state.currentFile} uploadedFiles={state.uploadedFiles} />
+          <UploadList currentFile={currentFile} uploadedFiles={uploadedFiles} onPreview={handlerSetPreview} />
         </Stack>
+        <button onClick={testAxios}>TEST</button>
       </UploadBox>
-    </Container>
+      { previewing && <FilePreviewer file={previewingFile} />}
+    </>
   </>
 }
 
