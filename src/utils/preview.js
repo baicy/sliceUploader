@@ -92,7 +92,6 @@ const methodMap = {
 }
 
 export const preview = (file) => {
-  console.log('preview: ',file)
   let type = ''
   for(let i in typeMap) {
     if(typeMap[i].includes(file.fileType)) {
@@ -104,6 +103,7 @@ export const preview = (file) => {
     }
   }
   if(!type) {
+    console.log('unsettle type: ',file.fileType)
     handlerDefault()
   }
 }

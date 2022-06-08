@@ -19,7 +19,7 @@ const uploadDir = './uploads'
 function checkFileExist(md5, fileName) {
   // 查找md5对应文件名数据库文件, 没有即创建
   if (!fs.existsSync(path.join(uploadDir, 'md5.db'))) {
-    fs.writeFile(path.join(uploadDir, 'md5.db'), '{}', { encoding: 'utf-8' }, (err) => reject(err))
+    fs.writeFile(path.join(uploadDir, 'md5.db'), '{}', { encoding: 'utf-8' }, (err) => console.log(err))
     return false // 数据库未初始化, 没有上传过文件, 什么都不存在
   }
   // 查找md5对应文件是否存在, 是否有其他名字的相同文件
@@ -28,7 +28,7 @@ function checkFileExist(md5, fileName) {
     if (!db[md5].includes(fileName)) {
       // md5对应的文件名列表中没有该文件, 添加对应
       db[md5] = [...db[md5], fileName]
-      fs.writeFile(path.join(uploadDir, 'md5.db'), JSON.stringify(db), { encoding: 'utf-8' }, (err) => reject(err))
+      fs.writeFile(path.join(uploadDir, 'md5.db'), JSON.stringify(db), { encoding: 'utf-8' }, (err) => console.log(err))
     }
     return db[md5][0]
   }
