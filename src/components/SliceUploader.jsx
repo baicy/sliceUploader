@@ -4,7 +4,7 @@ import UploadButton from './UploadButton'
 import UploadList from './UploadList'
 import FilePreviewer from './FilePreviewer'
 import { styled } from '@mui/material/styles'
-import { Box, Stack } from '@mui/material'
+import { Box, Stack, Button } from '@mui/material'
 import { request } from '../utils/request'
 import concurrency from '../utils/concurrency'
 
@@ -15,6 +15,7 @@ const initialState = {
 }
 const reducer = (state, action) => {
   const { name, md5, percent } = { ...(state.currentFile||{}), ...action }
+  const { list } = action
   switch(action.type) {
     case 'fileChange':
       return { ...state, currentFile: { name, percent: 0, status: 'checking' }, uploading: true }
@@ -36,6 +37,8 @@ const reducer = (state, action) => {
       console.log('uploaded fail')
       console.groupEnd()
       return { ...state, uploading: false, currentFile: null, uploadedFiles: [{name, md5, percent, status: 'error'}, ...state.uploadedFiles.filter(v=>v.md5!==md5||v.name!==name)] }
+    case 'filesLoaded':
+      return { ...state, uploadedFiles: [...list] }
     default:
       return state
   }
@@ -155,17 +158,10 @@ const SliceUploader = () => {
     minHeight: '300px'
   })
 
-  const testAxios = () => {
-    // const arr = [1000, 5000, 3000, 2000]
-    // const timeout = ms => new Promise(resolve => {
-    //   setTimeout(() => {
-    //     console.log(ms)
-    //     resolve(ms)
-    //   }, ms)
-    // })
-    // concurrency(2, arr, timeout)
-    // .then(res => console.log(res))
-    request('/test').then(res => console.log(res))
+  const loadFiles = () => {
+    request('/test').then(list => {
+      dispatch({ type: 'filesLoaded', list })
+    })
   }
 
   const handlerSetPreview = useCallback((file) => {
@@ -184,7 +180,7 @@ const SliceUploader = () => {
           <UploadButton onChange={uploader} loading={state.uploading} />
           <UploadList currentFile={currentFile} uploadedFiles={uploadedFiles} onPreview={handlerSetPreview} />
         </Stack>
-        <button onClick={testAxios}>TEST</button>
+        <Button onClick={loadFiles} variant="contained">LOAD</Button>
       </UploadBox>
       { previewing && <FilePreviewer file={previewingFile} />}
     </>

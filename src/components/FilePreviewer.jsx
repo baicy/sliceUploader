@@ -1,8 +1,9 @@
-import React, { useEffect, memo } from 'react'
+import React, { useEffect, memo, useState } from 'react'
 import ReactDOM from 'react-dom'
 import { styled } from '@mui/material/styles'
 import { Box, Divider, Grid, Typography, Button } from '@mui/material'
 import { request } from '../utils/request'
+import { preview } from '../utils/preview'
 
 const PreviewBox = styled(Box)({
     border: '1px solid grey',
@@ -13,12 +14,11 @@ const PreviewBox = styled(Box)({
   })
 
 const FilePreviewer = ({ file }) => {
-    console.log('render previewer')
+    const [fileData, setFileData] = useState(null)
+
+    // console.log('render previewer')
+
     useEffect(() => {
-        // console.log('file preview', file)
-    }, [file])
-    const handlerDownloadFile = (e, file) => {
-        e.preventDefault()
         const { name: fileName, md5 } = file
         request(`/download/${md5}`, { fileName, md5 }, { responseType: 'blob' })
         .then(
@@ -26,14 +26,23 @@ const FilePreviewer = ({ file }) => {
             const { data, fileName } = res
             const blob = new Blob([data], { type: data.type })
             const url = window.URL.createObjectURL(blob)
-            const link = document.createElement('a')
-            link.href = url
-            link.download = decodeURIComponent(fileName)
-            link.click()
-            window.URL.revokeObjectURL(url)
+            const previewFile = { blob, url, fileName: decodeURIComponent(fileName), fileType: data.type }
+            setFileData(previewFile)
+            preview(previewFile)
           },
           (err) => console.log(err)
         )
+        return () => {
+            fileData && fileData.url && window.URL.revokeObjectURL(fileData.url)
+        }
+    }, [file])
+
+    const handlerDownloadFile = (e) => {
+        e.preventDefault()
+        const link = document.createElement('a')
+        link.href = fileData.url
+        link.download = decodeURIComponent(fileData.fileName)
+        link.click()
       }
 
     return ReactDOM.createPortal(<PreviewBox>
@@ -42,10 +51,11 @@ const FilePreviewer = ({ file }) => {
                 <Typography variant="h6">{ file && file.name }</Typography>
             </Grid>
             <Grid item xs={4} style={{ textAlign: 'right' }}>
-                <Button onClick={(e)=>handlerDownloadFile(e, file)}>DOWNLOAD</Button>
+                <Button onClick={handlerDownloadFile}>DOWNLOAD</Button>
             </Grid>
         </Grid>
-        <Divider></Divider>
+        <Divider sx={{ mb: '10px' }}></Divider>
+        <Box id="previewArea"></Box>
     </PreviewBox>, document.getElementById('previewer'))
 }
 

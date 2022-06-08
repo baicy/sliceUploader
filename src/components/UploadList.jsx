@@ -4,7 +4,7 @@ import ErrorIcon from '@mui/icons-material/Error'
 
 const FileItem = memo(({ file, onPreview }) => {
   // TODO: 点击preview时不重新渲染文件列表
-  console.log('render file', file.name)
+  // console.log('render file', file.name)
 
   const handlerPreview = useCallback((file)=>onPreview(file), [])
   const handlerPreviewerFile = useCallback((e, file)=>{
@@ -50,7 +50,7 @@ const FileItem = memo(({ file, onPreview }) => {
 const FileList = memo(({ files, onPreview }) => {
   const list = useMemo(()=>[...files], [files])
   const handlerPreview = useCallback((file)=>onPreview(file), [])
-  console.log('render file list')
+  // console.log('render file list')
 
   return <>
     {list.map((item) => <FileItem key={`${item.md5}-${item.name}`} file={item} onPreview={handlerPreview} />)}
@@ -59,7 +59,7 @@ const FileList = memo(({ files, onPreview }) => {
 
 const UploadList = ({ currentFile, uploadedFiles, onPreview }) => {
 
-  console.log('render list')
+  // console.log('render list')
 
   const files = useMemo(()=>[...uploadedFiles], [uploadedFiles])
   const handlerPreview = useCallback((file)=>onPreview(file), [])

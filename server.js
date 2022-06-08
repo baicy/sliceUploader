@@ -77,6 +77,22 @@ function moveChunk(tmp, md5, index) {
   })
 }
 
+function getExistFiles() {
+  const files = []
+  const db = JSON.parse(fs.readFileSync(path.join(uploadDir, 'md5.db'), { encoding: 'utf-8' }))
+  for(let md5 in db) {
+    db[md5].forEach(v=>{
+      files.push({
+        md5,
+        name: v,
+        percent: 100,
+        status: 'uploaded'
+      })
+    })
+  }
+  return files
+}
+
 app.post('/check', (req, res) => {
   const { md5, fileName } = req.body
   checkFileNeedUpload(md5, fileName).then((data) => res.send(data))
@@ -116,25 +132,19 @@ app.post('/merge', (req, res) => {
   fs.rmdirSync(path.resolve(uploadDir, md5))
 
   const db = JSON.parse(fs.readFileSync(path.join(uploadDir, 'md5.db'), { encoding: 'utf-8' }))
-  db[md5] = [fileName, ...(db[md5] || [])]
+  db[md5] = [...(db[md5] || []), fileName]
   fs.writeFileSync(path.join(uploadDir, 'md5.db'), JSON.stringify(db), { encoding: 'utf-8' })
 
   res.send({ ok: 1, data: { md5, fileName } })
 })
 
 app.post('/test', (req, res) => {
-  // setTimeout(()=>{ res.end() }, 8000)
-  // const { n } = req.body
-  // res.send(n)
-  // console.log(app.get('env'))
-  // res.send(app.get('env'))
-  res.send(req.url)
+  res.send(getExistFiles())
 })
 
 app.post('/download/*', (req, res) => {
   const { fileName, md5 } = req.body
   const dbFileName = checkFileExist(md5, fileName)
-  console.log(dbFileName)
   if (dbFileName) {
     res.header({ 'Content-Disposition': `attachment; filename=${encodeURIComponent(fileName)}` })
     res.sendFile(path.resolve(uploadDir, dbFileName))
