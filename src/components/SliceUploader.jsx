@@ -1,4 +1,4 @@
-import React, { useReducer, useState, useMemo, useCallback, useEffect, useRef } from 'react'
+import React, { useReducer, useMemo, useEffect, useRef } from 'react'
 import SparkMD5 from 'spark-md5'
 import UploadButton from './UploadButton'
 import UploadList from './UploadList'
@@ -12,11 +12,13 @@ import concurrency from '../utils/concurrency'
 const initialState = {
   uploading: false,
   currentFile: null,
-  uploadedFiles: []
+  uploadedFiles: [],
+  previewing: false,
+  previewingFile: null,
 }
 const reducer = (state, action) => {
   const { name, md5, percent } = { ...(state.currentFile||{}), ...action }
-  const { list } = action
+  const { list, file } = action
   switch(action.type) {
     case 'fileChange':
       return { ...state, currentFile: { name, percent: 0, status: 'checking' }, uploading: true }
@@ -40,15 +42,19 @@ const reducer = (state, action) => {
       return { ...state, uploading: false, currentFile: null, uploadedFiles: [{name, md5, percent, status: 'error'}, ...state.uploadedFiles.filter(v=>v.md5!==md5||v.name!==name)] }
     case 'filesLoaded':
       return { ...state, uploadedFiles: [...list] }
+    case 'filePreview':
+      return { ...state, previewing: true, previewingFile: { ...file } }
+    case 'fileDeleted':
+      return { ...state, previewing: false, previewingFile: null }
     default:
       return state
   }
 }
 
+export const UploaderContext = React.createContext()
+
 const SliceUploader = () => {
   const [state, dispatch] = useReducer(reducer, initialState)
-  const [previewing, setPreviewing] = useState(false)
-  const [currentPreview, setCurrentPreview] = useState(null)
   const uploadRef = useRef(null)
   const chunkSize = 5 * 1024 * 1024
   let chunkNum = 1
@@ -169,23 +175,13 @@ const SliceUploader = () => {
     })
   }
 
-  const handlerSetPreview = useCallback((file) => {
-    setPreviewing(true)
-    setCurrentPreview(file)
-  }, [])
+  const currentFile = useMemo(()=>{ return state.currentFile?{...state.currentFile}:null }, [state.currentFile])
+  const uploadedFiles = useMemo(()=>([...state.uploadedFiles]), [state.uploadedFiles])
 
-  const handlerDeleteFile = useCallback(() => {
-    loadFiles()
-    setPreviewing(false)
-    setCurrentPreview(null)
-  }, [])
-
-  const currentFile = useMemo(()=>state.currentFile, [state.currentFile])
-  const uploadedFiles = useMemo(()=>state.uploadedFiles, [state.uploadedFiles])
-  const previewingFile = useMemo(() => ({ ...currentPreview }), [currentPreview])
+  console.log('render uploader')
 
   return <>
-    <>
+    <UploaderContext.Provider value={dispatch}>
       <UploadBox variant="outlined" square ref={uploadRef}>
         <Stack spacing={2} sx={{ height: '100%' }}>
           <Stack direction="row" spacing={2} justifyContent="flex-start" sx={{ position: 'fixed' }}>
@@ -194,12 +190,12 @@ const SliceUploader = () => {
           </Stack>
           <Divider style={{ marginTop: '60px' }} />
           <Box sx={{ overflow: 'auto' }}>
-            <UploadList currentFile={currentFile} uploadedFiles={uploadedFiles} onPreview={handlerSetPreview} />
+            <UploadList currentFile={currentFile} uploadedFiles={uploadedFiles} />
           </Box>
         </Stack>
       </UploadBox>
-      { previewing && <FilePreviewer file={previewingFile} onDelete={handlerDeleteFile} />}
-    </>
+      { state.previewing && <FilePreviewer file={state.previewingFile} />}
+    </UploaderContext.Provider>
   </>
 }
 

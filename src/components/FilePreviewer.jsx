@@ -1,9 +1,10 @@
-import React, { useEffect, memo, useState } from 'react'
+import React, { useEffect, memo, useState, useContext } from 'react'
 import ReactDOM from 'react-dom'
 import { styled } from '@mui/material/styles'
 import { Box, Paper, Divider, Grid, Typography, Button } from '@mui/material'
 import { request } from '../utils/request'
 import { preview } from '../utils/preview'
+import { UploaderContext } from './SliceUploader'
 
 const PreviewBox = styled(Paper)({
   textAlign: 'left',
@@ -12,10 +13,12 @@ const PreviewBox = styled(Paper)({
   marginLeft: '10px',
 })
 
-const FilePreviewer = ({ file, onDelete }) => {
+const FilePreviewer = ({ file }) => {
   const [fileData, setFileData] = useState(null)
 
-  // console.log('render previewer')
+  const dispatch = useContext(UploaderContext)
+
+  console.log('render previewer')
 
   useEffect(() => {
     const { name: fileName, md5 } = file
@@ -47,8 +50,11 @@ const FilePreviewer = ({ file, onDelete }) => {
     e.preventDefault()
     const { md5, fileName } = fileData
     request(`/delete/${md5}`, { md5, fileName }).then(
-      (res) => {
-        onDelete()
+      () => {
+        dispatch({ type: 'fileDeleted' })
+        request('/test').then(list => {
+          dispatch({ type: 'filesLoaded', list })
+        })
       },
       (err) => console.error(err)
     )
