@@ -5,7 +5,7 @@ import { UploaderContext } from './SliceUploader'
 
 const FileItem = memo(({ file }) => {
   // TODO: 点击preview时不重新渲染文件列表
-  console.log('render file', file.name)
+  // console.log('render file', file.name)
   const dispatch = useContext(UploaderContext)
 
   const handlerPreview = useCallback((e)=>{
@@ -51,7 +51,7 @@ const FileItem = memo(({ file }) => {
 
 const FileList = memo(({ files }) => {
   const list = useMemo(()=>([...files]), [files])
-  console.log('render file list')
+  // console.log('render file list')
 
   return <>
     {list.map((item) => <FileItem key={`${item.md5}-${encodeURIComponent(item.name)}`} file={item} />)}
@@ -60,7 +60,7 @@ const FileList = memo(({ files }) => {
 
 const UploadList = ({ currentFile, uploadedFiles }) => {
 
-  console.log('render list')
+  // console.log('render list')
 
   const files = useMemo(()=>[...uploadedFiles], [uploadedFiles])
 

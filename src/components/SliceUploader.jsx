@@ -1,4 +1,4 @@
-import React, { useReducer, useMemo, useEffect, useRef } from 'react'
+import React, { useReducer, useMemo, useRef } from 'react'
 import SparkMD5 from 'spark-md5'
 import UploadButton from './UploadButton'
 import UploadList from './UploadList'
@@ -61,9 +61,6 @@ const SliceUploader = () => {
   let currentChunk = 0, uploadedChunkNum = 0
 
   // TODO: 点击preview时不重新渲染文件列表
-  useEffect(() => {
-    uploadRef.current.style.height = `${window.innerHeight - 10 - 1 - 10 - 20}px`
-  })
 
   const readFile = (file) => {
     console.group('file', file.name)
@@ -118,7 +115,7 @@ const SliceUploader = () => {
     form.append('md5', md5)
     form.append('index', chunk)
     form.append('data', file.slice(chunk*chunkSize, (chunk+1)*chunkSize>=file.size?file.size:(chunk+1)*chunkSize))
-    return request(`/upload/${chunk}`, form)
+    return request(`/upload`, form)
     .then(
       () => {
         uploadedChunkNum++
@@ -166,11 +163,13 @@ const SliceUploader = () => {
   const UploadBox = styled(Paper)({
     textAlign: 'left',
     padding: '10px',
-    marginTop: '10px'
+    marginTop: '10px',
+    height: '400px'
   })
 
   const loadFiles = () => {
-    request('/test').then(list => {
+    // console.log('test', process.env.NODE_ENV)
+    request('/all').then(list => {
       dispatch({ type: 'filesLoaded', list })
     })
   }
@@ -178,7 +177,7 @@ const SliceUploader = () => {
   const currentFile = useMemo(()=>{ return state.currentFile?{...state.currentFile}:null }, [state.currentFile])
   const uploadedFiles = useMemo(()=>([...state.uploadedFiles]), [state.uploadedFiles])
 
-  console.log('render uploader')
+  // console.log('render uploader')
 
   return <>
     <UploaderContext.Provider value={dispatch}>

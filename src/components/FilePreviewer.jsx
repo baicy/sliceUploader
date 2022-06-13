@@ -18,11 +18,11 @@ const FilePreviewer = ({ file }) => {
 
   const dispatch = useContext(UploaderContext)
 
-  console.log('render previewer')
+  // console.log('render previewer')
 
   useEffect(() => {
     const { name: fileName, md5 } = file
-    request(`/download/${md5}`, { fileName, md5 }, { responseType: 'blob' }).then(
+    request(`/download`, { fileName, md5 }, { responseType: 'blob' }).then(
       (res) => {
         const { data, fileName } = res
         const blob = new Blob([data], { type: data.type })
@@ -49,7 +49,7 @@ const FilePreviewer = ({ file }) => {
   const handlerDeleteFile = (e) => {
     e.preventDefault()
     const { md5, fileName } = fileData
-    request(`/delete/${md5}`, { md5, fileName }).then(
+    request(`/delete`, { md5, fileName }).then(
       () => {
         dispatch({ type: 'fileDeleted' })
         request('/test').then(list => {
